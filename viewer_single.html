@@ -1615,13 +1615,19 @@ body {
       <div class="two-col" style="margin-bottom:16px;">
         <!-- Tanks & MD -->
         <div class="card">
-          <div class="card-title">Tanks & Misdirection</div>
+          <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+            <div class="card-title" style="margin-bottom:0;">Tanks & Misdirection</div>
+            <button onclick="refreshContextFields()" style="padding:4px 12px;font-size:11px;font-weight:700;border-radius:4px;cursor:pointer;background:rgba(126,200,227,0.12);border:1px solid rgba(126,200,227,0.35);color:#7ec8e3;font-family:'Inter',sans-serif;letter-spacing:0.04em;">↻ Refresh</button>
+          </div>
           <div id="tanks-md-fields"></div>
         </div>
 
         <!-- Heals -->
         <div class="card">
-          <div class="card-title">Heals</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">
+            Heals
+            <button onclick="refreshHealFields()" style="padding:3px 10px;font-size:11px;font-weight:700;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-dim);" title="Refresh after changing tanks">↻ Refresh</button>
+          </div>
           <div id="heals-fields"></div>
         </div>
       </div>
@@ -1704,7 +1710,7 @@ body {
       <div class="two-col" style="margin-bottom:16px;">
         <!-- Heals -->
         <div class="card">
-          <div class="card-title">Heals</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">Heals <button onclick="refreshHealFields('maulgar')" style="padding:3px 10px;font-size:11px;font-weight:700;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-dim);" title="Refresh after changing tanks">↻ Refresh</button></div>
           <div id="maulgar-heals-fields"></div>
         </div>
       </div>
@@ -1759,7 +1765,7 @@ body {
           <div id="gruul-tanks-fields"></div>
         </div>
         <div class="card">
-          <div class="card-title">Heals</div>
+          <div class="card-title" style="display:flex;align-items:center;justify-content:space-between;">Heals <button onclick="refreshHealFields('gruul')" style="padding:3px 10px;font-size:11px;font-weight:700;border-radius:3px;cursor:pointer;border:1px solid var(--border);background:var(--bg-deep);color:var(--text-dim);" title="Refresh after changing tanks">↻ Refresh</button></div>
           <div id="gruul-heals-fields"></div>
         </div>
       </div>
@@ -1824,7 +1830,7 @@ body {
         <h2>Settings</h2>
         <div class="divider-line"></div>
       </div>
-      <div class="card" style="max-width:480px;">
+      <div class="card" style="max-width:480px;margin-bottom:16px;">
         <div class="card-title">Admin Password</div>
         <div class="settings-row">
           <label>Current Password</label>
@@ -1840,6 +1846,12 @@ body {
         </div>
         <button class="btn-save" onclick="changePassword()" style="margin-top:8px;">Change Password</button>
         <div class="save-status" id="pw-save-status" style="margin-top:8px;display:block;"></div>
+      </div>
+      <div class="card" style="max-width:480px;">
+        <div class="card-title">Reset Raid Data</div>
+        <p style="color:var(--text-dim);font-size:13px;margin:0 0 12px;">Clears all raid assignments (rosters, bosses, buffs) from browser storage. Roster DB is preserved.</p>
+        <button class="btn-save" onclick="resetRaidData()" style="background:rgba(180,50,50,0.15);border-color:rgba(180,50,50,0.4);color:#e07070;">Reset All Assignments</button>
+        <div class="save-status" id="reset-status" style="margin-top:8px;display:block;"></div>
       </div>
     </div>
 
@@ -2167,11 +2179,21 @@ function getMagtData(n) {
 function saveMagtData(n, d) { setData(`magt_r${n}`, d); }
 
 function getRotations() {
-  return getData('wl_rotations', {
-    weeks: ['Wk1','Wk2','Wk3','Wk4','Wk5','Wk6'],
-    coe: {},
-    cor: {}
-  });
+  const d = getData('wl_rotations', { raids: [] });
+  // Ensure always 20 raids with at least 1 empty at end
+  if (!Array.isArray(d.raids)) d.raids = [];
+  // Fill missing up to 20
+  while (d.raids.length < 20) {
+    d.raids.push({ id: Date.now() + d.raids.length, label: '', coe: '', cor: '' });
+  }
+  d.raids = d.raids.slice(-20); // keep last 20
+  // Ensure last entry is empty (next raid slot)
+  const last = d.raids[d.raids.length - 1];
+  if (last.coe || last.cor || last.label) {
+    d.raids.push({ id: Date.now(), label: '', coe: '', cor: '' });
+    d.raids = d.raids.slice(-20);
+  }
+  return d;
 }
 function saveRotations2(r) { setData('wl_rotations', r); }
 
@@ -2294,17 +2316,17 @@ function renderRaidBuffsAdmin(n) {
     selectField('rbuf-kings',  'Kings',              pal, d.buffs?.kings  ||'','','rbuf-pal') +
     selectField('rbuf-might',  'Might',              pal, d.buffs?.might  ||'','','rbuf-pal') +
     selectField('rbuf-salv',   'Salvation / Wisdom', pal, d.buffs?.salv   ||'','','rbuf-pal') +
-    selectField('rbuf-impgotw12','Imp MOTW grp 1-2',   dru, d.buffs?.impgotw12||'','','rbuf-idru') +
-    selectField('rbuf-impgotw34','Imp MOTW grp 3-4',   dru, d.buffs?.impgotw34||'','','rbuf-idru') +
-    selectField('rbuf-impgotw5', 'Imp MOTW grp 5',     dru, d.buffs?.impgotw5 ||'','','rbuf-idru') +
+    selectField('rbuf-impgotw12','Imp MOTW grp 1-2',   dru, d.buffs?.impgotw12||'','','') +
+    selectField('rbuf-impgotw34','Imp MOTW grp 3-4',   dru, d.buffs?.impgotw34||'','','') +
+    selectField('rbuf-impgotw5', 'Imp MOTW grp 5',     dru, d.buffs?.impgotw5 ||'','','') +
     selectField('rbuf-thorns',   'Thorns',             dru, d.buffs?.thorns  ||'') +
-    selectField('rbuf-fort12', 'Fort / Shadow 1-2',  pri, d.buffs?.fort1  ||'','','rbuf-pri') +
-    selectField('rbuf-fort34', 'Fort / Shadow 3-4',  pri, d.buffs?.fort2  ||'','','rbuf-pri') +
-    selectField('rbuf-fort5',  'Fort / Shadow 5',    pri, d.buffs?.fort3  ||'','','rbuf-pri') +
+    selectField('rbuf-fort12', 'Fort / Shadow 1-2',  pri, d.buffs?.fort1  ||'','','') +
+    selectField('rbuf-fort34', 'Fort / Shadow 3-4',  pri, d.buffs?.fort2  ||'','','') +
+    selectField('rbuf-fort5',  'Fort / Shadow 5',    pri, d.buffs?.fort3  ||'','','') +
     selectField('rbuf-spirit', 'Spirit',             pri, d.buffs?.spirit ||'') +
-    selectField('rbuf-int12',  'Intellect 1-2',      mag, d.buffs?.int12  ||'','','rbuf-mag') +
-    selectField('rbuf-int34',  'Intellect 3-4',      mag, d.buffs?.int34  ||'','','rbuf-mag') +
-    selectField('rbuf-int5',   'Intellect 5',        mag, d.buffs?.int5   ||'','','rbuf-mag');
+    selectField('rbuf-int12',  'Intellect 1-2',      mag, d.buffs?.int12  ||'','','') +
+    selectField('rbuf-int34',  'Intellect 3-4',      mag, d.buffs?.int34  ||'','','') +
+    selectField('rbuf-int5',   'Intellect 5',        mag, d.buffs?.int5   ||'','','');
 
   document.getElementById('raidbuffs-debuffs-fields').innerHTML =
     selectField('rdeb-coe',     'COE (Affliction)',  wl,      d.debuffs?.coe    ||'') +
@@ -2313,10 +2335,9 @@ function renderRaidBuffsAdmin(n) {
     selectField('rdeb-iff',     'Improved FF',       dru,     d.debuffs?.iff    ||'') +
     selectField('rdeb-demo',    'Demo Shout',        war,     d.debuffs?.demo   ||'') +
     selectField('rdeb-thunder', 'Thunderclap',       war,     d.debuffs?.thunder||'') +
-    selectField('rdeb-arms',    'Arms Spec',         war,     d.debuffs?.arms   ||'');
 
   // Init exclusion groups
-  ['rbuf-pal','rbuf-pri','rbuf-mag','rbuf-idru'].forEach(group => {
+  ['rbuf-pal'].forEach(group => {
     const selects = document.querySelectorAll(`select[data-excl-group="${group}"]`);
     selects.forEach(sel => { sel._allOptions = [...sel.options].filter(o=>o.value).map(o=>({value:o.value,text:o.text})); });
     selects.forEach(sel => { if (sel.value) onSelectFieldChange(sel); });
@@ -2336,7 +2357,7 @@ function collectRaidBuffsData(n) {
     },
     debuffs: {
       coe: c('rdeb-coe'), cor: c('rdeb-cor'), iea: c('rdeb-iea'),
-      iff: c('rdeb-iff'), demo: c('rdeb-demo'), thunder: c('rdeb-thunder'), arms: c('rdeb-arms')
+      iff: c('rdeb-iff'), demo: c('rdeb-demo'), thunder: c('rdeb-thunder')
     }
   };
 }
@@ -2458,6 +2479,34 @@ function selectField(id, label, options, val, extra='', group='') {
   </div>`;
 }
 
+function refreshHealFields(boss) {
+  const n = state.currentAdminRoster;
+  if (!boss || boss === 'magt') {
+    // Save current tank selections first
+    const t1 = document.getElementById('asgn-t1');
+    const t2 = document.getElementById('asgn-t2');
+    const d = getMagtData(n);
+    d.tanks = d.tanks || {};
+    if (t1) d.tanks.t1 = t1.value;
+    if (t2) d.tanks.t2 = t2.value;
+    saveMagtData(n, d);
+    renderContextualFields(n, d);
+  } else if (boss === 'maulgar') {
+    collectAndSaveMaulgar();
+    renderMaulgarAdmin(currentMaulgarRoster);
+  } else if (boss === 'gruul') {
+    collectAndSaveGruul();
+    renderGruulAdmin(currentGruulRoster);
+  }
+}
+
+function refreshContextFields() {
+  const n = state.currentAdminRoster;
+  collectAndSaveMagt();
+  const d = getMagtData(n);
+  renderContextualFields(n, d);
+}
+
 function onSelectFieldChange(sel) {
   // Update state class
   if (sel.value) {
@@ -2465,6 +2514,17 @@ function onSelectFieldChange(sel) {
   } else {
     const hasOptions = sel.options.length > 1;
     sel.className = sel.className.replace(/\bstate-pending\b|\bstate-done\b/g, '').trim() + (hasOptions ? ' state-pending' : '');
+  }
+
+  // If Tank 1 or Tank 2 changed — re-render heals and ES fields
+  if (sel.id === 'asgn-t1' || sel.id === 'asgn-t2') {
+    const n = state.currentAdminRoster;
+    const d = getMagtData(n);
+    d.tanks = d.tanks || {};
+    if (sel.id === 'asgn-t1') d.tanks.t1 = sel.value;
+    if (sel.id === 'asgn-t2') d.tanks.t2 = sel.value;
+    saveMagtData(n, d);
+    renderContextualFields(n, d);
   }
 
   // If COE or COR changed — re-render COT/Banish to update available warlocks
@@ -3203,9 +3263,9 @@ function togglePickerPlayer(rosterN, name, cls) {
   const d = getMagtData(rosterN);
   d.active = [...sel];
   saveMagtData(rosterN, d);
-  // Re-render whichever picker is currently visible
-  renderRosterPicker('roster-page-picker', rosterN);
-  renderRosterPicker('active-raiders-select', rosterN);
+  // Re-render the visible picker
+  const activeContainer = state.currentAdminPage === 'roster' ? 'roster-page-picker' : 'active-raiders-select';
+  renderRosterPicker(activeContainer, rosterN);
   renderContextualFields(rosterN, d);
   renderRaidCompPanel(rosterN);
 }
@@ -3215,8 +3275,8 @@ function clearPickerSelection(rosterN) {
   const d = getMagtData(rosterN);
   d.active = [];
   saveMagtData(rosterN, d);
-  renderRosterPicker('roster-page-picker', rosterN);
-  renderRosterPicker('active-raiders-select', rosterN);
+  const activeContainer = state.currentAdminPage === 'roster' ? 'roster-page-picker' : 'active-raiders-select';
+  renderRosterPicker(activeContainer, rosterN);
   renderContextualFields(rosterN, d);
   renderRaidCompPanel(rosterN);
 }
@@ -3502,8 +3562,14 @@ function renderContextualFields(n, d) {
       }).join('');
       return '<div class="clicker-grid">' + slotsHtml + '</div>' +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
-        selectField('click-b1', '1st Backup Clicker', activeRoster, (d.clickers || {}).b1 || '') +
-        selectField('click-b2', '2nd Backup Clicker', activeRoster, (d.clickers || {}).b2 || '') +
+        (() => {
+          const assignedSingle = new Set([
+            d.clickers?.c1, d.clickers?.c2, d.clickers?.c3, d.clickers?.c4, d.clickers?.c5
+          ].filter(Boolean));
+          const freeForBackup = activeRoster.filter(p => !assignedSingle.has(p.name));
+          return selectField('click-b1', '1st Backup Clicker', freeForBackup, (d.clickers || {}).b1 || '') +
+                 selectField('click-b2', '2nd Backup Clicker', freeForBackup, (d.clickers || {}).b2 || '');
+        })() +
         '</div>';
     } else {
       // Multi-team mode: for each marker, N team slots
@@ -3552,8 +3618,14 @@ function renderContextualFields(n, d) {
 
       return rows +
         '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px;">' +
-        selectField('click-b1', '1st Backup Clicker', activeRoster, (d.clickers || {}).b1 || '') +
-        selectField('click-b2', '2nd Backup Clicker', activeRoster, (d.clickers || {}).b2 || '') +
+        (() => {
+          const assignedInSets = new Set(
+            Object.values((d.clickers.sets||{})).flatMap(ms => Object.values(ms).filter(Boolean))
+          );
+          const freeForBackup = activeRoster.filter(p => !assignedInSets.has(p.name));
+          return selectField('click-b1', '1st Backup Clicker', freeForBackup, (d.clickers || {}).b1 || '') +
+                 selectField('click-b2', '2nd Backup Clicker', freeForBackup, (d.clickers || {}).b2 || '');
+        })() +
         '</div>';
     }
   }
@@ -3578,12 +3650,13 @@ function renderContextualFields(n, d) {
 
   // KICKS / ES / IEA
   const kickTargets = ['Star','Moon','Diamond','Square','Triangle'];
+  const kickers = filterByClass(activeRoster, ['Warrior','Rogue','Mage','Druid','Shaman']);
   document.getElementById('kicks-other-fields').innerHTML = `
     <div class="card-title" style="margin-bottom:8px;font-size:10px;">Kicks / Interrupts</div>
     <div class="kick-grid">
       ${kickTargets.map(t=>`
-        ${selectField(`kick-${t.toLowerCase()}-volley`,`${markerSvg(t.toLowerCase(),14)} ${t} — Kick Volley`,activeRoster,d.kicks?.[`${t.toLowerCase()}volley`]||'')}
-        ${selectField(`kick-${t.toLowerCase()}-heal`,  `${markerSvg(t.toLowerCase(),14)} ${t} — Kick Heal`,  activeRoster,d.kicks?.[`${t.toLowerCase()}heal`]||'')}
+        ${selectField(`kick-${t.toLowerCase()}-volley`,`${markerSvg(t.toLowerCase(),14)} ${t} — Kick Volley`,kickers,d.kicks?.[`${t.toLowerCase()}volley`]||'')}
+        ${selectField(`kick-${t.toLowerCase()}-heal`,  `${markerSvg(t.toLowerCase(),14)} ${t} — Kick Heal`,  kickers,d.kicks?.[`${t.toLowerCase()}heal`]||'')}
       `).join('')}
     </div>
   `;
@@ -3719,7 +3792,6 @@ function validateMagt(d) {
   if (!d.debuffs?.iff)     issues.push('Imp FF missing');
   if (!d.debuffs?.demo)    issues.push('Demo Shout missing');
   if (!d.debuffs?.thunder) issues.push('Thunderclap missing');
-  if (!d.debuffs?.arms)    issues.push('Arms Spec missing');
   // Heals
   const tankHealData = d.heals?.tanks || {};
   const assignedTanks = Object.keys(tankHealData).filter(t => tankHealData[t]?.length > 0);
@@ -3794,58 +3866,97 @@ function renderWarlockRotation() {
   const roster = getRoster();
   const warlocks = filterByClass(roster, ['Warlock']);
   const rot = getRotations();
-  
+  const raids = rot.raids;
+  const wlCol = CLASS_COLORS['Warlock'];
+
+  // Count how many times each warlock was assigned per type
+  function countFor(type, name) {
+    return raids.filter(r => r[type] === name).length;
+  }
+
   ['coe','cor'].forEach(type => {
-    const containerId = `${type}-rotation-table`;
-    const container = document.getElementById(containerId);
+    const container = document.getElementById(`${type}-rotation-table`);
     if (!container) return;
-    
-    const weeks = rot.weeks;
+
+    const typeLabel = type === 'coe' ? 'COE (Affliction)' : 'COR';
+
+    // Table: rows = warlocks, cols = raids (last 20, newest right)
+    const header = raids.map((r,i) => {
+      const isEmpty = !r.coe && !r.cor && !r.label;
+      const isLast = i === raids.length - 1;
+      return `<th style="font-size:10px;font-weight:600;color:${isLast?'var(--green)':'var(--text-dim)'};min-width:32px;text-align:center;padding:4px 2px;">
+        <input value="${r.label||''}" placeholder="R${i+1}"
+          style="width:30px;background:transparent;border:none;border-bottom:1px solid var(--border);color:${isLast?'var(--green)':'var(--text-dim)'};font-size:10px;text-align:center;outline:none;font-family:'Inter',sans-serif;"
+          onchange="updateRaidLabel(${i}, this.value)" />
+      </th>`;
+    }).join('');
+
+    const rows = warlocks.map(p => {
+      const total = countFor(type, p.name);
+      const last3 = raids.slice(-3).filter(r => r[type] === p.name).length;
+      const isDue = total === 0 || (total <= Math.floor(raids.filter(r=>r[type]).length / warlocks.length));
+      const cells = raids.map((r, i) => {
+        const isAssigned = r[type] === p.name;
+        const isEmpty = !r.coe && !r.cor && !r.label;
+        const isLast = i === raids.length - 1;
+        return `<td style="text-align:center;padding:2px;">
+          <span onclick="toggleRotAssign('${type}',${i},'${p.name}')"
+            style="display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:3px;cursor:pointer;font-size:12px;font-weight:800;
+              background:${isAssigned?`rgba(${hexToRgb(wlCol)},0.25)`:'transparent'};
+              border:1px solid ${isAssigned?wlCol+'88':(isLast?'var(--green)44':'rgba(255,255,255,0.06)')};
+              color:${isAssigned?wlCol:'var(--text-dim)'};"
+            title="${r.label||'Raid '+(i+1)}">
+            ${isAssigned?'✓':''}
+          </span>
+        </td>`;
+      }).join('');
+
+      return `<tr style="border-bottom:1px solid rgba(255,255,255,0.04);">
+        <td style="padding:4px 8px;white-space:nowrap;">${badge(p.name, p.cls)}</td>
+        ${cells}
+        <td style="padding:4px 8px;text-align:center;">
+          <span style="font-size:11px;font-weight:700;color:${isDue?'#e8a030':'var(--text-dim)'};">${total}</span>
+        </td>
+      </tr>`;
+    }).join('');
+
     container.innerHTML = `
-      <table class="rotation-table">
-        <thead>
-          <tr>
-            <th>Warlock</th>
-            ${weeks.map((w,i)=>`<th>${w}</th>`).join('')}
-            <th>Count</th>
-          </tr>
-        </thead>
-        <tbody>
-          ${warlocks.map(p => {
-            const row = rot[type][p.name] || Array(6).fill(false);
-            const count = row.filter(Boolean).length;
-            const due = count <= 2;
-            return `<tr>
-              <td>${badge(p.name, p.cls)}</td>
-              ${weeks.map((w,i) => `
-                <td>
-                  <span class="rot-check ${row[i]?'active':''}" 
-                    onclick="toggleRotCell('${type}','${p.name}',${i})" 
-                    title="${w}">
-                    ${row[i]?'✓':''}
-                  </span>
-                </td>
-              `).join('')}
-              <td><span class="rot-count ${due?'rot-due':''}">${count}/6</span></td>
-            </tr>`;
-          }).join('')}
-        </tbody>
-      </table>
-      <div style="margin-top:10px;display:flex;gap:16px;font-size:11px;">
-        <span><span style="color:var(--text-dim)">■</span> Normal</span>
-        <span style="color:#e8a030;">■ Due (≤2 times)</span>
-        <span style="color:#44bb66;">■ Current week</span>
+      <div style="overflow-x:auto;">
+        <table class="rotation-table" style="width:100%;border-collapse:collapse;">
+          <thead>
+            <tr style="border-bottom:1px solid var(--border);">
+              <th style="text-align:left;padding:4px 8px;font-size:11px;color:var(--text-dim);">Warlock</th>
+              ${header}
+              <th style="font-size:10px;color:var(--text-dim);padding:4px 8px;">Total</th>
+            </tr>
+          </thead>
+          <tbody>${rows}</tbody>
+        </table>
       </div>
-    `;
+      <div style="margin-top:8px;font-size:11px;color:var(--text-dim);">
+        <span style="color:#e8a030;font-weight:700;">Orange</span> = due next · Last column = next raid
+      </div>`;
   });
 }
 
-function toggleRotCell(type, name, weekIdx) {
+function toggleRotAssign(type, raidIdx, warlockName) {
   const rot = getRotations();
-  if (!rot[type][name]) rot[type][name] = Array(6).fill(false);
-  rot[type][name][weekIdx] = !rot[type][name][weekIdx];
+  const raid = rot.raids[raidIdx];
+  if (!raid) return;
+  // Toggle: if already assigned → clear, else assign
+  raid[type] = raid[type] === warlockName ? '' : warlockName;
+  // After filling last slot, ensure there's always a fresh empty slot
   saveRotations2(rot);
+  // Re-init to add new empty slot if needed
+  const fresh = getRotations();
+  saveRotations2(fresh);
   renderWarlockRotation();
+}
+
+function updateRaidLabel(raidIdx, label) {
+  const rot = getRotations();
+  if (rot.raids[raidIdx]) rot.raids[raidIdx].label = label;
+  saveRotations2(rot);
 }
 
 function saveRotations() {
@@ -3860,6 +3971,24 @@ function saveRotations() {
 // ═══════════════════════════════════════════════════════════
 // SETTINGS
 // ═══════════════════════════════════════════════════════════
+
+function resetRaidData() {
+  if (!confirm('Reset all raid assignments? This cannot be undone.\nRosterDB will be preserved.')) return;
+  const preserve = ['roster', 'admin_pw', 'raid_theme'];
+  const toDelete = [];
+  for (let i = 0; i < localStorage.length; i++) {
+    const k = localStorage.key(i);
+    if (!preserve.includes(k)) toDelete.push(k);
+  }
+  toDelete.forEach(k => localStorage.removeItem(k));
+  // Reset in-memory picker state
+  window.__pickerState = {};
+  window.__specState = {};
+  const s = document.getElementById('reset-status');
+  s.textContent = '✓ All assignments reset';
+  s.style.color = 'var(--green)';
+  setTimeout(() => { s.textContent = ''; }, 3000);
+}
 
 function changePassword() {
   const curr = document.getElementById('curr-pw').value;
@@ -3899,7 +4028,7 @@ function getMaulgarData(n) {
     tanks: {maulgar:'', blindeye:'', olm:'', kiggler:'', krosh:''},
     md: {skull:{hunter:'',target:''}, cross:{hunter:'',target:''}},
     buffs: {}, // inherited from Magt, overrideable
-    debuffs: {demo:'', thunder:'', arms:'', iff:''},
+    debuffs: {demo:'', thunder:'', iff:''},
     heals: {assignments:{}, raid:[]},
     warlocks: {},
     tactics_url:'', tactics_b64:'', explanation:''
@@ -3950,8 +4079,8 @@ function renderGruulAdmin(n) {
   const tanks = filterByClass(activeRoster, ['Paladin','Druid','Warrior']);
 
   document.getElementById('gruul-tanks-fields').innerHTML =
-    selectField('gruul-t1',   'Tank 1 (Skull)',    tanks, d.tanks?.t1  ||'') +
-    selectField('gruul-t2',   'Tank 2 (Cross)',    tanks, d.tanks?.t2  ||'') +
+    selectField('gruul-t1',   'Main Tank',       tanks, d.tanks?.t1  ||'') +
+    selectField('gruul-t2',   'Offtank',         tanks, d.tanks?.t2  ||'') +
     buildMDPairFields('gruul-md1', d.md?.md1, hun, [{name:d.tanks?.t1,label:'Main Tank'},{name:d.tanks?.t2,label:'Offtank'}], currentGruulRoster) +
     buildMDPairFields('gruul-md2', d.md?.md2, hun, [{name:d.tanks?.t1,label:'Main Tank'},{name:d.tanks?.t2,label:'Offtank'}], currentGruulRoster);
 
@@ -4496,7 +4625,7 @@ function vTankMDRow(markerIdTank, markerIdMD, tankLabel, mdLabel, tankName, mdDa
   const hunterBadge = hunterName ? vName(hunterName, roster) : '<span style="color:var(--text-dim);">—</span>';
   const targetBadge = targetName ? vName(targetName, roster) : '';
   return `<div class="v-row v-tank-md-row ${isMe?'highlighted':''}" ${isMe?`style="--hl-col:${col}"`:''}>
-    <span class="v-label">${markerSvg(markerIdTank,14)}<span style="font-weight:700;color:var(--text);">${tankLabel}</span>: ${tankBadge}</span>
+    <span class="v-label">${markerIdTank ? markerSvg(markerIdTank,14) : ''}<span style="font-weight:700;color:var(--text);">${tankLabel}</span>: ${tankBadge}</span>
     <span class="v-value" style="gap:5px;flex-wrap:wrap;">
       ${hunterBadge}
       <span style="color:var(--text-dim);font-size:11px;">→</span>
@@ -4618,8 +4747,8 @@ function buildGruulSection(n) {
 
   // Tanks with marker icons, same style as Magt/Maulgar
   const tanksCard = vCard('Tanks & Misdirection', [
-    vTankMDRow('skull','skull','Skull / Tank 1','',d.tanks?.t1,d.md?.md1,roster),
-    vTankMDRow('cross','cross','Cross / Tank 2','',d.tanks?.t2,d.md?.md2,roster),
+    vTankMDRow('','','Main Tank','',d.tanks?.t1,d.md?.md1,roster),
+    vTankMDRow('','','Offtank','',d.tanks?.t2,d.md?.md2,roster),
   ]);
 
   // Heals — Gruul uses es1/es2 (not cleaver/habibi like Magt)
