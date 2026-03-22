@@ -3019,11 +3019,8 @@ function onMDMarkToggle(n, hunterName, mid, btn) {
   d.md = d.md || {};
   d.md[hunterName] = d.md[hunterName] || { marks: [], target: '' };
   const marks = d.md[hunterName].marks;
-  if (marks.includes(mid)) {
-    d.md[hunterName].marks = marks.filter(m => m !== mid);
-  } else {
-    d.md[hunterName].marks = [...marks, mid];
-  }
+  // Single-select: if already selected deselect, otherwise replace
+  d.md[hunterName].marks = marks.includes(mid) ? [] : [mid];
   saveMagtData(n, d);
   renderMagtheridonAdmin(n);
 }
@@ -3202,19 +3199,24 @@ function togglePickerPlayer(rosterN, name, cls) {
   if (!window.__pickerState[key]) window.__pickerState[key] = new Set();
   const sel = window.__pickerState[key];
   if (sel.has(name)) sel.delete(name); else sel.add(name);
-  // re-render picker + contextual fields
-  renderRosterPicker('active-raiders-select', rosterN);
+  // Save to localStorage immediately
   const d = getMagtData(rosterN);
   d.active = [...sel];
+  saveMagtData(rosterN, d);
+  // Re-render whichever picker is currently visible
+  renderRosterPicker('roster-page-picker', rosterN);
+  renderRosterPicker('active-raiders-select', rosterN);
   renderContextualFields(rosterN, d);
   renderRaidCompPanel(rosterN);
 }
 
 function clearPickerSelection(rosterN) {
   window.__pickerState[`active_r${rosterN}`] = new Set();
-  renderRosterPicker('active-raiders-select', rosterN);
   const d = getMagtData(rosterN);
   d.active = [];
+  saveMagtData(rosterN, d);
+  renderRosterPicker('roster-page-picker', rosterN);
+  renderRosterPicker('active-raiders-select', rosterN);
   renderContextualFields(rosterN, d);
   renderRaidCompPanel(rosterN);
 }
